@@ -1,10 +1,20 @@
-__LOG_JSON__HOSTNAME=$(hostname -f)
-__LOG_JSON__ID=0
-__LOG_JSON__FINISHED=0
-__LOG_JSON__TTY=$(tty)
-__LOG_JSON__SESSION=$(uuidgen)
-__LOG_JSON__LOG_DIR=~/.bash_log/${__LOG_JSON__HOSTNAME}/
-__LOG_JSON__FILE=${__LOG_JSON__LOG_DIR}/${__LOG_JSON__SESSION}.json
+function __log_json__session_init {
+  if [[ $__LOG_JSON__SESSION_INIT != true ]]; then
+    __LOG_JSON__HOSTNAME=$(hostname -f)
+    __LOG_JSON__ID=0
+    __LOG_JSON__FINISHED=0
+    __LOG_JSON__TTY=$(tty)
+    __LOG_JSON__SESSION=$(uuidgen)
+    __LOG_JSON__LOG_DIR=~/.bash_log/${__LOG_JSON__HOSTNAME}/
+    __LOG_JSON__FILE=${__LOG_JSON__LOG_DIR}/${__LOG_JSON__SESSION}.json
+
+    (umask 0077; mkdir -p ${__LOG_JSON__LOG_DIR})
+    precmd_functions+=(__log_json__precmd)
+    preexec_functions+=(__log_json__preexec)
+    __log_json__session_event_jq >> $__LOG_JSON__FILE
+    __LOG_JSON__SESSION_INIT=true
+  fi
+}
 
 function __log_json__session_event_jq {
   jq -c -n \
@@ -67,7 +77,4 @@ function __log_json__precmd {
   fi
 }
 
-(umask 0077; mkdir -p ${__LOG_JSON__LOG_DIR})
-precmd_functions+=(__log_json__precmd)
-preexec_functions+=(__log_json__preexec)
-__log_json__session_event_jq >> $__LOG_JSON__FILE
+__log_json__session_init
