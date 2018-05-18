@@ -16,7 +16,7 @@ function __log_json__session_init {
       __LOG_JSON__ID=0
       __LOG_JSON__FINISHED=0
       __LOG_JSON__TTY=$(tty)
-      __LOG_JSON__SESSION=$(uuidgen || python - <<<'import uuid; print uuid.uuid4()')
+      __LOG_JSON__SESSION=$(uuidgen 2>/dev/null || python - <<<'import uuid; print uuid.uuid4()')
       __LOG_JSON__LOG_DIR=~/.bash_log/${__LOG_JSON__HOSTNAME}/
       __LOG_JSON__FILE=${__LOG_JSON__LOG_DIR}/${__LOG_JSON__SESSION}.json
       __LOG_JSON__SESSION_INIT=true
