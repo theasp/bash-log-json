@@ -1,7 +1,9 @@
 function __log_json__get_engine {
-  if which jq 2>&1 > /dev/null; then
+  if which jq >/dev/null 2>&1; then
     echo jq
-  elif (which perl; perl -MJSON::PP -e true) >/dev/null 2>&1; then
+  elif python - <<<"import json; json.dumps(None)" >/dev/null 2>&1; then
+    echo python
+  elif perl -MJSON::PP -e true >/dev/null 2>&1; then
     echo perl
   fi
 }
@@ -21,14 +23,15 @@ function __log_json__session_init {
 
       (umask 0077; mkdir -p ${__LOG_JSON__LOG_DIR})
       case $__LOG_JSON__ENGINE in
-        jq)   __log_json__session_event_jq >> $__LOG_JSON__FILE ;;
+        jq)   __log_json__session_event_jq   >> $__LOG_JSON__FILE ;;
         perl) __log_json__session_event_perl >> $__LOG_JSON__FILE ;;
       esac
+
       precmd_functions+=(__log_json__precmd)
       preexec_functions+=(__log_json__preexec)
     fi
   else
-    echo "Unable to intialize log-json, need jq or perl installed" 1>&2
+    echo "Unable to intialize log-json, need jq, python or perl installed" 1>&2
   fi
 }
 
@@ -46,6 +49,23 @@ function __log_json__session_event_jq {
        "pid": $pid|fromjson,
        "tty": $tty,
        "level": $level|fromjson}'
+}
+
+function __log_json__session_event_python {
+  python - "$__LOG_JSON__SESSION" "$__LOG_JSON__HOSTNAME" "$$" "$__LOG_JSON__TTY" "$SHLVL" <<"EOF"
+import json
+import time
+import sys
+data = {}
+data['type'] = 'session'
+data['time'] = time.time()
+data['session'] = sys.argv[1]
+data['hostname'] = sys.argv[2]
+data['pid'] = int(sys.argv[3])
+data['tty'] = sys.argv[4]
+data['level'] = int(sys.argv[5])
+print json.dumps(data, separators=(',',':'))
+EOF
 }
 
 function __log_json__session_event_perl {
@@ -70,6 +90,7 @@ print(encode_json($data) . "\n");
 EOF
 }
 
+
 function __log_json__start_event_jq {
   jq -c -n \
      --arg session "$__LOG_JSON__SESSION" \
@@ -83,6 +104,23 @@ function __log_json__start_event_jq {
        "id": $id|fromjson,
        "cmd": $cmd}'
 }
+
+function __log_json__start_event_python {
+  python - "$__LOG_JSON__SESSION" "$__LOG_JSON__HOSTNAME" "$__LOG_JSON__ID" "$__LOG_JSON__CMD" <<"EOF"
+import json
+import time
+import sys
+data = {}
+data['type'] = 'start'
+data['time'] = time.time()
+data['session'] = sys.argv[1]
+data['hostname'] = sys.argv[2]
+data['id'] = int(sys.argv[3])
+data['cmd'] = sys.argv[4]
+print json.dumps(data, separators=(',',':'))
+EOF
+}
+
 
 function __log_json__start_event_perl {
   perl -\
@@ -120,6 +158,23 @@ function __log_json__end_event_jq {
        "rc": $rc|fromjson}' >> $__LOG_JSON__FILE
 }
 
+function __log_json__end_event_python {
+  python - "$__LOG_JSON__SESSION" "$__LOG_JSON__HOSTNAME" "$__LOG_JSON__ID" "$__LOG_JSON__CMD" "$__LOG_JSON__RC" <<"EOF"
+import json
+import time
+import sys
+data = {}
+data['type'] = 'stop'
+data['time'] = time.time()
+data['session'] = sys.argv[1]
+data['hostname'] = sys.argv[2]
+data['id'] = int(sys.argv[3])
+data['cmd'] = sys.argv[4]
+data['rc'] = int(sys.argv[5])
+print json.dumps(data, separators=(',',':'))
+EOF
+}
+
 function __log_json__end_event_perl {
   perl - \
        "$__LOG_JSON__SESSION" \
@@ -145,8 +200,9 @@ function __log_json__preexec {
   __LOG_JSON__CMD="$1"
   __LOG_JSON__ID=$(( __LOG_JSON__ID + 1 ))
   case $__LOG_JSON__ENGINE in
-    jq)   __log_json__start_event_jq >> $__LOG_JSON__FILE ;;
-    perl) __log_json__start_event_perl >> $__LOG_JSON__FILE ;;
+    jq)     __log_json__start_event_jq     >> $__LOG_JSON__FILE ;;
+    python) __log_json__start_event_python >> $__LOG_JSON__FILE ;;
+    perl)   __log_json__start_event_perl   >> $__LOG_JSON__FILE ;;
   esac
 }
 
@@ -155,24 +211,34 @@ function __log_json__precmd {
   if [[ $__LOG_JSON__FINISHED != $__LOG_JSON__ID ]]; then
     __LOG_JSON__FINISHED=$__LOG_JSON__ID
     case $__LOG_JSON__ENGINE in
-      jq)   __log_json__end_event_jq >> $__LOG_JSON__FILE ;;
-      perl) __log_json__end_event_perl >> $__LOG_JSON__FILE ;;
+      jq)     __log_json__end_event_jq     >> $__LOG_JSON__FILE ;;
+      python) __log_json__end_event_python >> $__LOG_JSON__FILE ;;
+      perl)   __log_json__end_event_perl   >> $__LOG_JSON__FILE ;;
     esac
   fi
 }
 
+function __log_json__benchmark {
+  echo "Python"
+  time {
+    for i in $(seq 1000); do
+      __log_json__session_event_python > /dev/null
+    done
+  }
+  echo
+  echo "Perl"
+  time {
+    for i in $(seq 1000); do
+      __log_json__session_event_perl > /dev/null
+    done
+  }
+  echo
+  echo "JQ"
+  time {
+    for i in $(seq 1000); do
+      __log_json__session_event_jq > /dev/null
+    done
+  }
+}
+
 __log_json__session_init
-
-# echo "Perl"
-# time {
-#   for i in $(seq 1000); do
-#     __log_json__session_event_perl > /dev/null
-#   done
-# }
-
-# echo "JQ"
-# time {
-#   for i in $(seq 1000); do
-#     __log_json__session_event_jq > /dev/null
-#   done
-# }
