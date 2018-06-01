@@ -8,6 +8,21 @@ function __log_json__get_engine {
   fi
 }
 
+function __log_json__uuidgen {
+  if [[ -e /proc/sys/kernel/random/uuid ]]; then
+    cat /proc/sys/kernel/random/uuid
+  elif [[ -e /compat/linux/proc/sys/kernel/random/uuid ]]; then
+    cat /compat/linux/proc/sys/kernel/random/uuid
+  elif which uuidgen >/dev/null 2>&1; then
+    uuidgen
+  elif which python; then
+    python -c 'import uuid; print uuid.uuid4()'
+  else
+    echo $RANDOM
+  fi
+}
+
+
 function __log_json__session_init {
   __LOG_JSON__ENGINE=$(__log_json__get_engine)
   if [[ $__LOG_JSON__ENGINE ]]; then
@@ -16,7 +31,7 @@ function __log_json__session_init {
       __LOG_JSON__ID=0
       __LOG_JSON__FINISHED=0
       __LOG_JSON__TTY=$(tty)
-      __LOG_JSON__SESSION=$(uuidgen 2>/dev/null || python - <<<'import uuid; print uuid.uuid4()')
+      __LOG_JSON__SESSION=$(__log_json__uuidgen)
       __LOG_JSON__LOG_DIR=~/.bash_log/${__LOG_JSON__HOSTNAME}/
       __LOG_JSON__FILE=${__LOG_JSON__LOG_DIR}/${__LOG_JSON__SESSION}.json
       __LOG_JSON__SESSION_INIT=true
