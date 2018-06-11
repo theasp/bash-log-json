@@ -27,6 +27,7 @@ function __log_json__session_init {
   __LOG_JSON__ENGINE=$(__log_json__get_engine)
   if [[ $__LOG_JSON__ENGINE ]]; then
     if [[ $__LOG_JSON__SESSION_INIT != true ]]; then
+      __LOG_JSON__USERNAME=$USER
       __LOG_JSON__HOSTNAME=$(hostname -f)
       __LOG_JSON__ID=0
       __LOG_JSON__FINISHED=0
@@ -53,13 +54,15 @@ function __log_json__session_init {
 function __log_json__session_event_jq {
   jq -c -n \
      --arg session "$__LOG_JSON__SESSION" \
+     --arg username "$__LOG_JSON__USERNAME" \
      --arg hostname "$__LOG_JSON__HOSTNAME" \
      --arg pid "$$" \
      --arg tty "$__LOG_JSON__TTY" \
      --arg level "$SHLVL" \
      '{"type": "session",
-       "time": now,
+       "timestamp": now,
        "session": $session,
+       "username": $username,
        "hostname": $hostname,
        "pid": $pid|fromjson,
        "tty": $tty,
@@ -67,18 +70,19 @@ function __log_json__session_event_jq {
 }
 
 function __log_json__session_event_python {
-  python - "$__LOG_JSON__SESSION" "$__LOG_JSON__HOSTNAME" "$$" "$__LOG_JSON__TTY" "$SHLVL" <<"EOF"
+  python - "$__LOG_JSON__SESSION" "$__LOG_JSON__USERNAME" "$__LOG_JSON__HOSTNAME" "$$" "$__LOG_JSON__TTY" "$SHLVL" <<"EOF"
 import json
 import time
 import sys
 data = {}
 data['type'] = 'session'
-data['time'] = time.time()
+data['timestamp'] = time.time()
 data['session'] = sys.argv[1]
-data['hostname'] = sys.argv[2]
-data['pid'] = int(sys.argv[3])
-data['tty'] = sys.argv[4]
-data['level'] = int(sys.argv[5])
+data['username'] = sys.argv[2]
+data['hostname'] = sys.argv[3]
+data['pid'] = int(sys.argv[4])
+data['tty'] = sys.argv[5]
+data['level'] = int(sys.argv[6])
 print json.dumps(data, separators=(',',':'))
 EOF
 }
@@ -86,16 +90,18 @@ EOF
 function __log_json__session_event_perl {
   perl - \
        "$__LOG_JSON__SESSION" \
+       "$__LOG_JSON__USERNAME" \
        "$__LOG_JSON__HOSTNAME" \
        "$$" \
        "$__LOG_JSON__TTY" \
        "$SHLVL" <<-'EOF'
 use Time::HiRes qw(time);
 use JSON::PP;
-($session, $hostname, $pid, $tty, $level) = @ARGV;
+($session, $username, $hostname, $pid, $tty, $level) = @ARGV;
 $data = {type => session,
-         time => time(),
+         timestamp => time(),
          session => $session,
+         username => $username,
          hostname => $hostname,
          pid => int($pid),
          tty => $tty,
@@ -109,11 +115,12 @@ EOF
 function __log_json__start_event_jq {
   jq -c -n \
      --arg session "$__LOG_JSON__SESSION" \
+     --arg username "$__LOG_JSON__USERNAME" \
      --arg hostname "$__LOG_JSON__HOSTNAME" \
      --arg id "$__LOG_JSON__ID" \
      --arg cmd "$__LOG_JSON__CMD" \
      '{"type": "start",
-       "time": now,
+       "timestamp": now,
        "session": $session,
        "hostname": $hostname,
        "id": $id|fromjson,
@@ -121,17 +128,18 @@ function __log_json__start_event_jq {
 }
 
 function __log_json__start_event_python {
-  python - "$__LOG_JSON__SESSION" "$__LOG_JSON__HOSTNAME" "$__LOG_JSON__ID" "$__LOG_JSON__CMD" <<"EOF"
+  python - "$__LOG_JSON__SESSION" "$__LOG_JSON__USERNAME" "$__LOG_JSON__HOSTNAME" "$__LOG_JSON__ID" "$__LOG_JSON__CMD" <<"EOF"
 import json
 import time
 import sys
 data = {}
 data['type'] = 'start'
-data['time'] = time.time()
+data['timestamp'] = time.time()
 data['session'] = sys.argv[1]
-data['hostname'] = sys.argv[2]
-data['id'] = int(sys.argv[3])
-data['cmd'] = sys.argv[4]
+host['username'] = sys.argv[2]
+data['hostname'] = sys.argv[3]
+data['id'] = int(sys.argv[4])
+data['cmd'] = sys.argv[5]
 print json.dumps(data, separators=(',',':'))
 EOF
 }
@@ -140,15 +148,17 @@ EOF
 function __log_json__start_event_perl {
   perl -\
        "$__LOG_JSON__SESSION" \
+       "$__LOG_JSON__USERNAME" \
        "$__LOG_JSON__HOSTNAME" \
        "$__LOG_JSON__ID" \
        "$__LOG_JSON__CMD" <<-'EOF'
 use Time::HiRes qw(time);
 use JSON::PP;
-($session, $hostname, $id, $cmd) = @ARGV;
+($session, $username, $hostname, $id, $cmd) = @ARGV;
 $data = {type => session,
-         time => time(),
+         timestamp => time(),
          session => $session,
+         username => $username,
          hostname => $hostname,
          id => int($id),
          cmd => $cmd};
@@ -160,13 +170,15 @@ EOF
 function __log_json__end_event_jq {
   jq -c -n \
      --arg session "$__LOG_JSON__SESSION" \
+     --arg username "$__LOG_JSON__USERNAME" \
      --arg hostname "$__LOG_JSON__HOSTNAME" \
      --arg id "$__LOG_JSON__ID" \
      --arg rc "$__LOG_JSON__RC" \
      --arg cmd "$__LOG_JSON__CMD" \
      '{"type": "end",
-       "time": now,
+       "timestamp": now,
        "session": $session,
+       "username": $username,
        "hostname": $hostname,
        "id": $id|fromjson,
        "cmd": $cmd,
@@ -174,18 +186,19 @@ function __log_json__end_event_jq {
 }
 
 function __log_json__end_event_python {
-  python - "$__LOG_JSON__SESSION" "$__LOG_JSON__HOSTNAME" "$__LOG_JSON__ID" "$__LOG_JSON__CMD" "$__LOG_JSON__RC" <<"EOF"
+  python - "$__LOG_JSON__SESSION" "$__LOG_JSON__USERNAME" "$__LOG_JSON__HOSTNAME" "$__LOG_JSON__ID" "$__LOG_JSON__CMD" "$__LOG_JSON__RC" <<"EOF"
 import json
 import time
 import sys
 data = {}
 data['type'] = 'stop'
-data['time'] = time.time()
+data['timestamp'] = time.time()
 data['session'] = sys.argv[1]
-data['hostname'] = sys.argv[2]
-data['id'] = int(sys.argv[3])
-data['cmd'] = sys.argv[4]
-data['rc'] = int(sys.argv[5])
+data['username'] = sys.argv[2]
+data['hostname'] = sys.argv[3]
+data['id'] = int(sys.argv[4])
+data['cmd'] = sys.argv[5]
+data['rc'] = int(sys.argv[6])
 print json.dumps(data, separators=(',',':'))
 EOF
 }
@@ -193,16 +206,18 @@ EOF
 function __log_json__end_event_perl {
   perl - \
        "$__LOG_JSON__SESSION" \
+       "$__LOG_JSON__USERNAME" \
        "$__LOG_JSON__HOSTNAME" \
        "$__LOG_JSON__ID" \
        "$__LOG_JSON__CMD" \
        "$__LOG_JSON__RC" <<-'EOF'
 use Time::HiRes qw(time);
 use JSON::PP;
-($session, $hostname, $id, $cmd, $rc) = @ARGV;
+($session, $username, $hostname, $id, $cmd, $rc) = @ARGV;
 $data = {type => session,
-         time => time(),
+         timestamp => timestamp(),
          session => $session,
+         username => $username,
          hostname => $hostname,
          id => int($id),
          cmd => $cmd};
