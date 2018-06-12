@@ -122,6 +122,7 @@ function __log_json__start_event_jq {
      '{"type": "start",
        "timestamp": now,
        "session": $session,
+       "username": $username,
        "hostname": $hostname,
        "id": $id|fromjson,
        "cmd": $cmd}'
