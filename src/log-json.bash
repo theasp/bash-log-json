@@ -27,7 +27,7 @@ function __log_json__session_init {
   __LOG_JSON__ENGINE=$(__log_json__get_engine)
   if [[ $__LOG_JSON__ENGINE ]]; then
     if [[ $__LOG_JSON__SESSION_INIT != true ]]; then
-      __LOG_JSON__USERNAME=$USER
+      __LOG_JSON__USERNAME=$(id -un)
       __LOG_JSON__HOSTNAME=$(hostname -f)
       __LOG_JSON__ID=0
       __LOG_JSON__FINISHED=0
